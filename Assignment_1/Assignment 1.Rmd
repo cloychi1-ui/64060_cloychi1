@@ -1,0 +1,70 @@
+---
+title: 'Assignment #1'
+output: html_document
+date: "2026-06-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+
+
+##Checking the dataset and the first 6 rows
+
+```{r}
+data("penguins")
+mydata <- penguins
+head(mydata)
+```
+
+##Descriptive Statistics
+##Bill Length
+```{r}
+summary(mydata$bill_len)
+mean(mydata$bill_len,na.rm=TRUE)
+median(mydata$bill_len,na.rm=TRUE)
+```
+
+##Flipper Length 
+```{r}
+summary(mydata$flipper_len)
+mean(mydata$flipper_len,na.rm=TRUE)
+median(mydata$flipper_len,na.rm=TRUE)
+```
+
+##Body Mass
+```{r}
+summary(mydata$body_mass)
+mean(mydata$body_mass,na.rm=TRUE)
+median(mydata$body_mass,na.rm=TRUE)
+```
+##Categorical Variables/Descrptive Statistics
+
+```{r}
+table(mydata$species)
+table(mydata$island)
+table(mydata$sex)
+```
+
+##Transformation of categorical Variables into numerical variables
+
+```{r}
+mydata$species_num <- ifelse(mydata$species == "Adelie", 1,
+                      ifelse(mydata$species == "Chinstrap", 2, 3))
+table(mydata$species, mydata$species_num)
+```
+
+##Plotting a quantitative variable using histogram
+```{r}
+hist(mydata$body_mass)
+```
+##Scatterplot 
+
+```{r}
+plot(mydata$bill_len,mydata$flipper_len)
+```
+
