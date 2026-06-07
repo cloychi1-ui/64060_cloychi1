@@ -1,0 +1,175 @@
+---
+title: 'Assignment #2'
+output:
+  pdf_document: default
+  html_document: default
+date: "2026-06-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+library(caret)
+library(class)
+library(dplyr)
+```
+
+##Question 1 
+I am loading the dataset and making sure its the correct dataset using the head function. I also name the dataset mydata. 
+```{r}
+mydata <- read.csv("UniversalBank-1.csv")
+head(mydata)
+```
+
+Here, I am using the str function to look at the structure of my data. 
+```{r}
+str(mydata)
+```
+
+Education needs to be transformed into a dummy variable because the distances between 1,2,3 mean nothing. Education is categorical and it must be recognized like this when doing the modeling. 
+
+```{r}
+mydata$Education <- as.factor(mydata$Education)
+dummy_model <- dummyVars(~Education,data=mydata)
+education_dummies <- predict(dummy_model,mydata)
+head(education_dummies)
+```
+Now that I turned education into a dummy variable I have to combine it with the dataset
+```{r}
+mydata <- cbind(mydata,education_dummies)
+```
+Now I have to remove the original education column 
+```{r}
+mydata$Education <- NULL
+```
+Checking my columns to see if it worked 
+```{r}
+names(mydata)
+```
+
+Now that I have successful transformed education into a dummy variable I am now going to remove ID and zip code from the dataset. 
+```{r}
+mydata$ID <- NULL
+mydata$ZIP.Code <- NULL
+names(mydata)
+```
+
+Next we need to normalize the data. We do this because the orginial variables have different scales, some larger than others. 
+
+I am now going to normalize the predictors
+
+```{r}
+predictors <- mydata[,names(mydata)!="Personal.Loan"]
+norm.values <- preProcess(predictors,method="range")
+predictors_norm <- predict(norm.values,predictors)
+mydata_norm <- cbind(predictors_norm,Personal.Loan=mydata$Personal.Loan)
+```
+
+Split into training and validation sets 
+```{r}
+set.seed(1)
+train.index <- createDataPartition(mydata_norm$Personal.Loan,p=.60,list=FALSE)
+trainData <- mydata_norm[train.index,]
+validData <- mydata_norm[-train.index,]
+```
+Seperate predictors and outcome 
+```{r}
+train_x <- trainData[,names(trainData)!="Personal.Loan"]
+valid_x <- validData[,names(validData)!="Personal.Loan"]
+train_y <- trainData$Personal.Loan
+valid_y <- validData$Personal.Loan
+```
+
+Add new customer information as a dataframe 
+```{r}
+new_customer <- data.frame(Age=40,Experience=10,Income=84,Family=2,CCAvg=2,Mortgage=0,Securities.Account=0,CD.Account=0,Online=1,CreditCard=1,Education.1=0,Education.2=1,Education.3=0)
+new_customer_norm <- predict(norm.values,new_customer)
+knn_pred_k1 <- knn(train=train_x,test=new_customer_norm,cl=train_y,k=1)
+knn_pred_k1
+```
+The new customer classified as 0 with k=1, meaning the customer will not accept the personal load offer according to the models prediction. 
+
+##Question 2
+In this question I need to find the k that balances between overfitting and underfitting. I am to create an empty list to store the accuracy results for each value of K (1-20). Then I am going to output the max accuracy for a certain value of K. 
+```{r}
+accuracy <- c()
+for(i in 1:20){pred <- knn(train=train_x,test=valid_x,cl=train_y,k=i)
+accuracy[i] <- mean(pred==valid_y)}
+accuracy
+which.max(accuracy)
+max(accuracy)
+```
+After evaluating values of k based on validation accuracy, k=1 had the highest accuracy 96.1%, therefore, making it the best value of k.
+
+
+
+
+##Question 3
+
+We know that the best model to use is one where k=1. Lets run the model on the validation data, then analyze the performance of the model using a confusion matrix. 
+
+```{r}
+best_pred <- knn(train=train_x,test=valid_x,cl=train_y,k=1)
+confusionMatrix(best_pred,as.factor(valid_y))
+```
+This predictive model has an 96.1% overall accuracy. The confusion matrix showed 1,770 true negatives, 152 true positives, 25 false positives, and 53 false negatives. 
+
+##Question 4
+This question is basically asking us to classify the same customer we did in the first part of the problem using the best k. We already know the best k=1, so the customer is classified as 0. 
+
+##Question 5
+
+First we have to create a new split. The overall data is going to be split into training data, validation data, and test data. 50%, 30%, and 20% respectively. 
+
+2500 customers need to go to training 
+
+```{r}
+set.seed(1)
+train.index <- createDataPartition(mydata_norm$Personal.Loan,p=.50,list=FALSE)
+trainData2 <- mydata_norm[train.index,]
+remainingData <- mydata_norm[-train.index,]
+```
+
+Now we split the remaining data
+```{r}
+valid.index <- createDataPartition(remainingData$Personal.Loan,p=.60,list=FALSE)
+validData2 <- remainingData[valid.index,]
+testData <- remainingData[-valid.index,]
+```
+To see if the sizes are correct we check 
+```{r}
+dim(trainData2)
+dim(validData2)
+dim(testData)
+```
+
+X and Y must be created 
+
+```{r}
+train_x2 <- trainData2[,names(trainData2)!="Personal.Loan"]
+valid_x2 <- validData2[,names(validData2)!="Personal.Loan"]
+test_x <- testData[,names(testData)!="Personal.Loan"]
+train_y2 <- trainData2$Personal.Loan
+valid_y2 <- validData2$Personal.Loan
+test_y <- testData$Personal.Loan
+```
+
+Now using the k=1 prediction model we are going to make predictions for training set, validation set, and test set
+
+```{r}
+pred_train <- knn(train=train_x2,test=train_x2,cl=train_y2,k=1)
+pred_valid <- knn(train=train_x2,test=valid_x2,cl=train_y2,k=1)
+pred_test <- knn(train=train_x2,test=test_x,cl=train_y2,k=1)
+```
+
+Confusion matrixes for all three
+```{r}
+confusionMatrix(pred_train,as.factor(train_y2))
+confusionMatrix(pred_valid,as.factor(valid_y2))
+confusionMatrix(pred_test,as.factor(test_y))
+```
+
+After splitting the normalizaed data into training 50%, validation 30%, and test 20% I ran the model. The training data achieved 100% accuracy. The validation set received 95.87%. And the test set received 96.10% accuracy. This shows that the model effectively memorized the training set. The results also indicate that the model generalizes well to unseen data. 
