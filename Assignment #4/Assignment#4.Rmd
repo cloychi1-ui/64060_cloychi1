@@ -1,0 +1,85 @@
+---
+title: 'Assignment #4'
+output:
+  html_document: default
+  pdf_document: default
+date: "2026-06-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+##First lets load the data
+```{r}
+mydata <- read.csv("Pharmaceuticals.csv")
+head.data <- head(mydata)
+str(mydata)
+summary(mydata)
+```
+
+##Selecting just the numerical variables 
+```{r}
+mydata.num <- mydata[,3:11]
+```
+
+##Now I am going to standardize the numerical variables 
+```{r}
+mydata.scaled <- scale(mydata.num)
+summary(mydata.scaled)
+```
+
+##I had to standardize the numerical variables prior to clustering because the variables were measured on very different scale. For example, you had market cap being measured in billion of dollars and beta values that were less than 2. 
+
+##Now we need to determine the number of clusters using wss values and elbow plot 
+
+```{r}
+set.seed(123)
+wss <- numeric(10)
+for(i in 1:10){wss[i] <- kmeans(mydata.scaled,centers=i,nstart=25)$tot.withinss}
+plot(1:10,wss,type="b",pch=19,xlab="Number of Clusterns",ylab="Within Cluster Sum of Squares",main="Elbow Method")
+```
+##By looking at the elbow plot it seems like the appropriate number of clusters is 3. I say this because there is a substantial decrease when moving from one to three clusters. And also the rate of improvements diminishes beyond three clusters. 
+
+##Next I run the k-means with 3 clusters
+
+```{r}
+set.seed(123)
+kmeans3 <- kmeans(mydata.scaled,centers=3,nstart = 25)
+kmeans3
+```
+
+```{r}
+kmeans3$cluster
+kmeans3$centers
+```
+
+##PART A and PART B: I used the 9 numerical variables in the clustering. The variables were measured on different scales so I had to normalize the scale prior to the clustering. K-means is perfect for identiying groups with similiar characteristics especially when working with numerical data. I used the elbow method/plot to find the appropriate number of clusters. In the plot it showed a noticeable bend aorund three clusters which indicated diminishing improvements beyond that point. Because of this a three cluster solution was selected. When looking at the results, we can see that cluster 1 is made up of smaller firm with weak profitability and growth. These firms also have high valuation ratios. This cluster could be named underperforming pharmaceutical firms. Cluster 2 is comprised of profitable and large firms. These firms show strong financial performance with lower risk. I would name this cluster established industry leaders. Cluster 3 is made up of smnaller firms that are rapdily growing. They have high leverage and risk because of this growth. I would call cluster 3 something like emerging or high growth pharmaceutical firms. 
+
+##Now we need to look at how median recommednation, location, and exchange fit into these clusters. 
+
+```{r}
+mydata$Cluster <- kmeans3$cluster
+table(mydata$Cluster,mydata$Location)
+```
+
+```{r}
+table(mydata$Cluster,mydata$Exchange)
+```
+
+```{r}
+table(mydata$Cluster,mydata$Median_Recommendation)
+```
+##Part C
+##Location: Clusters 2 and 3 were dominated by U.S based firms. Cluster 1 had a little more of a international mix of companies from Canada and Germany. There was really no strong geographic pattern that was observed. 
+##Exchange: Stock exchange really didnt appear to be a major factor distinguishing the clusters. The NYSE dominates in all clusters basically. 
+
+## Median Recommendation: Cluster 1 contained a strong buy recommendation. Clusters 2 and 3 contained mostly hold and moderate buy recommendations. 
+
+##Part D
+## Cluster 1 should be named underperforming high valuation firms. Cluster 2 should be named established pharmacuetical leaders and cluster 3 should be named high growth or emerging pharmaceutical firms. 
+
+##Final Conclusion:
+Cluster 1 should be named underperforming high valuation firms because these firms have low profitability, growth, and are smaller than average. They have high price to earnings ratios which typically means investors expect positive things about the future depsite weaker current performance. Cluster 2 is the established pharmaceutical leaders and this cluster contains large firms with the most profitability. These companies have strong returns on both equity and assets. They also have high profit margins and low risk. This makes them the strongest group financially. Lastly, cluster 3 or known as the high growth emerging pharmacuetical firms is a cluster made up of smaller and riskier firms that demonstrate high growth.
