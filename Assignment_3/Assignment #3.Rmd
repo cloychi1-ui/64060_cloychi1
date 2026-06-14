@@ -1,0 +1,99 @@
+---
+title: 'Assignment #3'
+output:
+  html_document: default
+  pdf_document: default
+date: "2026-06-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+##Load the data and then inspect it 
+```{r}
+library(caret)
+library(e1071)
+mydata <- read.csv("UniversalBank-1.csv")
+head(mydata)
+dim(mydata)
+```
+
+##Splitting the data into 60% training and 40% validation using the createDataPartition function to get a stratified sample. 
+
+```{r}
+set.seed(1)
+trainIndex <- createDataPartition(mydata$'Personal.Loan',p=.60,list=FALSE)
+train <- mydata[trainIndex,]
+valid <- mydata[-trainIndex,]
+```
+
+##Checking to see if split was successful 
+```{r}
+dim(train)
+dim(valid)
+```
+
+##Part A, creating the initial pivot table 
+```{r}
+loan.table <- table(train$CreditCard,train$'Personal.Loan',train$Online)
+loan.table
+```
+##Part B: To find P(Loan=1 given CC=1,Online=1), we focus on the pivot table, specifically on customers who both held a bank credit card and used online banking services. In this group 47 accepted the loan and 469 did not out of a total of 516 customers. To calculate the probability we do 47/516=.0911 or 9.11%. This percentage represents the proability that a customer will accept a loan offer if they have a credit card and use online banking. 
+
+##Part C: This is where we create two seperate pivot tables. The first one being loan and online. The second one being loan and credit card. 
+
+##Table 1: Loan vs Online 
+```{r}
+loan_online <- table(train$'Personal.Loan',train$Online)
+loan_online
+```
+
+##Table 2: Loan vs Credit card 
+```{r}
+loan_cc <- table(train$Personal.Loan,train$CreditCard)
+loan_cc
+```
+##Part D: This part in the assignment is asking to calculate six probabilities P(CC=1|Loan=1)
+P(Online=1|Loan=1)
+P(Loan=1)
+P(CC=1|Loan=0)
+P(Online=1|Loan=0)
+P(Loan=0)
+
+##P(CC=1/Loan=1)=77/275=.2800
+##P(Online=1/Loan=1)=166/275=.6036
+##P(Loan=1)=275/3000=0.0917
+##P(CC=1/Loan=0)=801/2725=0.2940
+##P(Online=1/Loan=0)=1588/2725=.5828
+##P(Loan=0)=2725/3000=0.9083
+
+## these results are very interesting because credit card holders make up about 28% of loan accepters but they also make up 29.4% of non acceptors. Those numbers are very alike. Also, 60.4% of acceptors use online banking and 58.3% of non acceptors use online banking. Again, these numbers are very similiar. So far the conclusion is these predictors dont really provide us with much information about whether someone will accept a loan offer. 
+
+
+##Part E: In this part we are going to plug these probabilities into naive bayes formula
+
+P(Loan=1)*P(CC=1/Loan=1)*P(Online=1/Loan=1)
+0.0917*0.2800*0.6036=0.0155
+
+P(Loan=0)*P(CC=1/Loan=0)*P(Online=1/Loan=0)
+0.9083*0.2940*0.5828=0.1556
+
+##P(Loan=1/CC=1,Online=1)=0.0155/0.0155+0.1556=0.0906 or 9.06%, so naives bayes estimate is 9.06%, If we compare this to part B which was 9.11%, we can conclude that there is only a 0.05 percentage point difference. The probability in part B is more accurate (9.11%) because its computed directly from the data observed. It does not depend on the independence assumption. Naive bayes probability of 9.06% is still very close to the actual profitability. 
+
+
+##Part G: Actually building the Naive Bayes Model in R
+```{r}
+loan.nb <- naiveBayes(as.factor(Personal.Loan)~CreditCard+Online,data=train)
+loan.nb
+```
+
+##So now we can see what probability the model assigns if a customer has a credit card and uses online banking. What is the probability of them accepting the load offer?
+
+```{r}
+new.customer <- data.frame(CreditCard=1,Online=1)
+predict(loan.nb,new.customer,type="raw")
+```
+##The naive bayes model estimated 0.0892 which is very close to the manual naive bayes calculation of 0.0906 done in part E and the direct probability of 0.0911 in part B. This indicates that the model has performed as expected and is consistent. 
