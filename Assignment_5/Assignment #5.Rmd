@@ -1,0 +1,169 @@
+---
+title: 'Assignment #5'
+output:
+  html_document: default
+  pdf_document: default
+date: "2026-06-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+##First I am going to load the data and check the variables 
+```{r}
+library(cluster)
+library(dplyr)
+library(ggplot2)
+cereals <- read.csv("Cereals.csv")
+head(cereals)
+str(cereals)
+summary(cereals)
+```
+
+##Now I am going to remove missing values 
+
+```{r}
+colSums(is.na(cereals))
+cereals_clean <- na.omit(cereals)
+nrow(cereals)
+nrow(cereals_clean)
+```
+
+##When can not cluster using name, mfr, or type. Those are labels not measurements so we have to select only numeric variables. 
+
+```{r}
+cereal_num <- cereals_clean%>%select(where(is.numeric))
+head(cereal_num)
+```
+
+##Now that we have just the numerical data, we have to normalize this numerical data because variables are on different scales and this can mess up the clustering. 
+
+```{r}
+cereal_scaled <- scale(cereal_num)
+summary(cereal_scaled)
+```
+
+##Now that the numerical data is normalized, we need to calculate the distance of each cereal data point. This measures how far apart each cereal is from every other cereal. And if the cereals are close together they must be nutriionally similiar. We use Euclidean distance. 
+
+```{r}
+cereal_dist <- dist(cereal_scaled,method="euclidean")
+```
+
+##Now we are going to test different linkage method and choose the one with the strongest clustering structure. 
+
+```{r}
+methods <- c("single", "complete", "average", "ward")
+
+agnes_results <- data.frame(
+  Method = methods,
+  Agglomerative_Coefficient = sapply(methods, function(m) {
+    agnes(cereal_scaled, method = m)$ac
+  })
+)
+
+agnes_results
+agnes_ward <- agnes(cereal_scaled, method = "ward")
+```
+The ward linkage has the highest agglomerative coefficient of about .90, meaning it gives the best and strongest hiercrchial clustering structure compared to the other linkage methods. Therefore it will be selected for the final hierarchical clustering analysis.
+
+## Now that we have chose ward, we can create the dendrogram. This is where we can visually see the hierarchical clustering tree
+
+```{r}
+agnes_ward <- agnes(cereal_scaled,method="ward")
+hc_ward <- as.hclust(agnes_ward)
+plot(hc_ward,labels=FALSE,main="Ward Linkage Dendrogram",xlab="Cereals",ylab="Height")
+rect.hclust(hc_ward,k=5,border=2:6)
+```
+By looking at the tree we can see each cereal begins as its own cluster and similiar cereals are merging together as the height increases. 
+
+##We got the tree, now its time to cut the tree into 5 groups and save those group numbers into the dataset
+
+```{r}
+k <- 5
+cereals_clean$Cluster <- cutree(hc_ward,k=k)
+table(cereals_clean$Cluster)
+```
+
+##Now lets get the average nutrition values for each cluster 
+
+```{r}
+cluster_profile <- cereals_clean %>%
+  group_by(Cluster) %>%
+  summarise(
+    Count = n(),
+    Avg_Calories = mean(calories),
+    Avg_Protein = mean(protein),
+    Avg_Fat = mean(fat),
+    Avg_Sodium = mean(sodium),
+    Avg_Fiber = mean(fiber),
+    Avg_Carbs = mean(carbo),
+    Avg_Sugars = mean(sugars),
+    Avg_Potass = mean(potass),
+    Avg_Rating = mean(rating)
+  )
+
+cluster_profile
+```
+It seems like cluster 1 is the healthiest cluster becaue it has the highest fiber and highest rating. Cluster 5 on the other hand is the best practical cafeteria choice because it has more cereals than cluster 1 and has very low calories, fat, sodium, and suger. 
+
+##I want to see the list of cereals in each cluster so I can specifically see the healthier cluster
+
+```{r}
+cereals_clean %>%
+  select(name, Cluster, calories, protein, fat, sodium, fiber, sugars, potass, rating) %>%
+  arrange(Cluster, name)
+healthy_cluster <- 5
+cereals_clean %>%
+  filter(Cluster == healthy_cluster) %>%
+  select(name, calories, protein, fat, sodium, fiber, sugars, potass, rating) %>%
+  arrange(sugars, sodium, desc(fiber), desc(rating))
+```
+Cluster 5 has shredded wheat, puffed wheat, puffed rice, raisin squares, and frosted mini wheats. This cluster has low average calories, very low fat, low sodium, low suger, and a strong average rating. Cluster 1 has a very strong health profile but only contrains three cereals. Cluster 5 is def a more practical choice for the elementary school cafetaria. 
+
+##We have to check if these clusters are stable, or did they only happen because of this exact dataset. We need to split the cereals into two parts which is partrition a and partition b. Partition a=used to build clusters and partitiion b=used to test if the clusters still make sense 
+
+```{r}
+set.seed(123)
+X <- cereals_clean %>%
+  select(where(is.numeric), -any_of("Cluster"))
+n <- nrow(X)
+A_index <- sample(1:n, size = floor(0.5 * n))
+B_index <- setdiff(1:n, A_index)
+
+A <- X[A_index, ]
+B <- X[B_index, ]
+A_scaled <- scale(A)
+B_scaled <- scale(
+  B,
+  center = attr(A_scaled, "scaled:center"),
+  scale = attr(A_scaled, "scaled:scale")
+)
+agnes_A <- agnes(A_scaled, method = "ward")
+hc_A <- as.hclust(agnes_A)
+
+A_clusters <- cutree(hc_A, k = 5)
+centroids <- aggregate(A_scaled, by = list(cluster = A_clusters), mean)
+centroids <- as.matrix(centroids[, -1])
+B_assigned <- apply(as.matrix(B_scaled), 1, function(row) {
+  distances <- apply(centroids, 1, function(center) {
+    sum((row - center)^2)
+  })
+  which.min(distances)
+})
+comparison <- table(
+  B_Assigned_From_A = B_assigned,
+  Full_Data_Cluster = cereals_clean$Cluster[B_index]
+)
+
+comparison
+consistency <- sum(apply(comparison, 1, max)) / sum(comparison)
+
+consistency
+```
+##The consistency score is 78.4%, meaning the clusters are moderately stable. For a small dataset this would be acceptable. Cluster 5's records stayed together in the stability check. 
+
+## normalization question and final interpretation 
+Clustering with Euclidean distance requires the data to be normalized because Euclidean distance is scale dependent. Variables such as sodium and potassium have values of a magnitude much larger than fat, protein, and fiber so they would dominate the clustering results if not normalized. The clusters should be created with the normalized data but interpreted with the original values. Cluster 5 is the best practical healthy cereal group for the school cafeteria with low calories, very low fat, almost no sodium, low sugar and a good rating and provides more variety than Cluster 1.
